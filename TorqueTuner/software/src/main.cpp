@@ -94,40 +94,16 @@ TinyPICO tp = TinyPICO();
 
 
 // Initial States
-int STATE = 6;
+int STATE = 0;
 int OLD_VALUE = 9999;
-int OLD_STATE = 6;
+int OLD_STATE = 0;
 int MAX_MOTOR_STATES = 8;
 
 
 void print_state(int cur_state) {
   lcd.setCursor(0,1);
   if (cur_state == 0) {
-    lcd.print("CLICK");
-  } 
-  else if (cur_state == 1) {
-    lcd.print("MAGNET");
-  }
-  else if (cur_state == 2) {
-    lcd.print("WALL");
-  }
-  else if (cur_state == 3) {
-    lcd.print("INERTIA");
-  }  
-  else if (cur_state == 4) {
-    lcd.print("LINEAR SPRING");
-  }
-  else if (cur_state == 5) {
-    lcd.print("EXP SPRING");
-  }
-  else if (cur_state == 6) {
-    lcd.print("FREE");
-  }
-  else if (cur_state == 7) {
-    lcd.print("SPIN");
-  }
-  else if (cur_state == 8) {
-    lcd.print("SERIAL LISTEN");
+    lcd.print("REED_BASIC");
   }
   else {
     lcd.print("Unknown State");
@@ -269,7 +245,7 @@ void sendI2C(TorqueTuner * knob_) {
   memcpy(tx_data + 6, &knob_->active_mode->pid_mode, 1);
   checksum_tx = calcsum(tx_data, I2C_BUF_SIZE);
   memcpy(tx_data + I2C_BUF_SIZE , &checksum_tx, 2);
-  //printf("Torque %d Angle %d Velocity %f Target %f Mode %c\n",knob_->torque,knob_->angle,knob_->velocity,knob_->target_velocity,knob_->active_mode->pid_mode);
+  // printf("Torque %d Angle %d Velocity %f Target %f Mode %c\n",knob_->torque,knob_->angle,knob_->velocity,knob_->target_velocity,knob_->active_mode->pid_mode);
   int n = Wire.write(tx_data, I2C_BUF_SIZE + CHECKSUMSIZE);
   Wire.endTransmission();    // stop transmitting
 }
@@ -564,8 +540,8 @@ void updateOSC() {
           lo_send(osc1, oscNamespace.c_str(), "i", knob.trigger);
           oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/angle_discrete");
           lo_send(osc1, oscNamespace.c_str(), "i", knob.angle_discrete);
-          oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/accl");
-          lo_send(osc1, oscNamespace.c_str(), "f", knob.acceleration);
+          oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/torque");
+          lo_send(osc1, oscNamespace.c_str(), "i", knob.torque);
     }
     if (puara.IP2_ready()) {
           oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/angle_out");
@@ -576,8 +552,8 @@ void updateOSC() {
           lo_send(osc1, oscNamespace.c_str(), "i", knob.trigger);
           oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/angle_discrete");
           lo_send(osc1, oscNamespace.c_str(), "i", knob.angle_discrete);
-          oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/accl");
-          lo_send(osc1, oscNamespace.c_str(), "f", knob.acceleration);
+          oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/torque");
+          lo_send(osc1, oscNamespace.c_str(), "i", knob.torque);
     }
 }
 #endif
@@ -680,7 +656,7 @@ void setup() {
     lcd.print(millis()/1000);
     #endif
   }
-  knob.set_mode(TorqueTuner::FREE);
+  knob.set_mode(TorqueTuner::REED_BASIC);
 
   // Show current haptic effect
   #ifdef VISUAL_FEEDBACK

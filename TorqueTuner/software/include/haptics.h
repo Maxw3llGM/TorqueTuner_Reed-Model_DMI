@@ -12,6 +12,7 @@
 #include "tf_exp_spring.h"
 #include "tf_sin.h"
 #include "tf_click_2.h"
+#include "pressure_table_values.h"
 #include "Arduino.h"
 #include "variants.h"
 #include <driver/uart.h>
@@ -49,125 +50,19 @@ public:
     int state = 0;
 };
 
-class Wall: public Mode
+class Reed_Basic: public Mode
 {
 public:
-    Wall() : Mode(MAX_TORQUE / 2) {
-        damping = 0.4;
-        max = 3000;
-    }
-    int16_t calc(void* ptr);
-    float stiffness = 0.1;
-    float threshold = 1 / stiffness;
-};
-
-class Click: public Mode
-{
-public:
-    Click() : Mode(MAX_TORQUE / 3.0, 10, 0, 3600)
-    {
-        #ifdef MOTEUS
-        damping = 0.2;
-        #endif
-        offset = 1799;
-        wrap_output = true;
-        wrap_haptics = true;
-    }
+    Reed_Basic() : Mode(){}
     int16_t calc(void* ptr);
 };
 
-class Magnet: public Mode
-{
-public:
-    Magnet() : Mode() {
-        damping = 0.15;
-    }
-    int16_t calc(void* ptr);
-};
-
-class Inertia: public Mode
-{
-public:
-    Inertia() : Mode(MAX_TORQUE) {}
-    int16_t calc(void* ptr);
-};
-
-class ExpSpring: public Mode
-{
-public:
-    ExpSpring() : Mode(180, 1, 0, 3600, 0.1) {
-        stretch_default  = 5;
-        damping = 0.25;
-    }
-    int16_t calc(void* ptr);
-};
-
-class LinSpring: public Mode
-{
-public:
-    LinSpring() : Mode(MAX_TORQUE, 1, 0, 3600) {
-        wrap_output = true;
-        wrap_haptics = false;
-    }
-    int16_t calc(void* ptr);
-};
-
-class Free: public Mode
-{
-public:
-    Free() : Mode(0, 1) {
-        target_velocity_default = 0;
-    }
-    int16_t calc(void* ptr);
-};
-
-class Spin: public Mode
-{
-public:
-    Spin() : Mode(0, 1) {
-        pid_mode = 'v';
-        wrap_output = true;
-        target_velocity_default = 200;
-    }
-    int16_t calc(void* ptr);
-};
-
-class SerialListen: public Mode
-{
-public:
-    SerialListen();
-    int16_t calc(void* ptr);
-    void set_active(bool is_active);
-
-private:
-    static bool active;
-    static int16_t torqueIn;
-    static int16_t angleOut;
-    static std::string serial_data_str_buffer;
-    static char serial_data[SERIAL_BUFSIZE];
-    static int serial_data_length;
-    static std::string serial_data_str;
-    static std::string serial_config_str;
-    static inline std::string convertToString(char* a) {
-        std::string s(a);
-        return s;
-    }
-    static void serial_monitor(void *pvParameters);
-};
 
 class TorqueTuner
 {
 public:
     enum MODE {
-        CLICK = 0,
-        MAGNET = 1,
-        WALL = 2,
-        INERTIA = 3,
-        LINSPRING = 4,
-        EXPSPRING = 5,
-        FREE = 6,
-        SPIN = 7,
-        SERIAL_LISTEN = 8
+        REED_BASIC = 0
     };
     const int trigger_interval = 50000;  // 10 ms
 
@@ -188,7 +83,7 @@ public:
     void set_stretch(float stretch_);
     void reset(Mode * mode_);
 
-    MODE mode = WALL;
+    MODE mode = REED_BASIC;
     int16_t angle = 0; // unwrap_outputped angle representing encoder reading
     int16_t angle_last = 0;
     int32_t angle_out = 0;
@@ -209,16 +104,8 @@ public:
     float scale = 75.0;
     float stretch = 1; // Corresponds to detents in click and magnet mode.
 
-    Click click;
-    Magnet magnet;
-    Wall wall;
-    LinSpring lin_spring;
-    ExpSpring exp_spring;
-    Free free;
-    Inertia inertia;
-    Spin spin;
-    SerialListen serial;
-    std::vector<Mode * > mode_list = {&click, &magnet, &wall, &inertia, &lin_spring, &exp_spring,  &free, &spin, &serial};
+    Reed_Basic reed_basic;
+    std::vector<Mode * > mode_list = {&reed_basic};
     Mode * active_mode;
 
 private:
