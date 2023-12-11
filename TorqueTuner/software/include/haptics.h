@@ -28,11 +28,12 @@ const int SERIAL_BUFSIZE = 1024;
 class Mode
 {
 public:
-    Mode( float scale_ = MAX_TORQUE / 2, int stretch_ = 1, float min_ = 0, float max_ = 3600, float damping_ = 0.0)
-        : min(min_), max(max_), scale_default(scale_), stretch_default(stretch_), damping(damping_) 
+    Mode( float scale_ = MAX_TORQUE/2, int stretch_ = 1, float min_ = 0, float max_ = 3600, float damping_ = 0.0, int table_size_ = 3600)
+        : min(min_), max(max_), scale_default(scale_), stretch_default(stretch_), damping(damping_), table_size(table_size_)
         {
           #ifdef MOTEUS
-          damping = 0.17;
+          damping = 0;
+        //damping = 0.17;
           #endif
         };
     virtual void set_active(bool is_active) {} // Used for any init/de-init per-mode
@@ -40,20 +41,40 @@ public:
     int16_t calc_index(void* ptr);
     void reset(int16_t angle_);
 
+
     float scale_default, stretch_default, min, max, damping, target_velocity_default;
     int offset = 0;
-
+    int table_size = 0;
     bool wrap_output = false;
     bool wrap_haptics = false;
     char pid_mode = 't';
     int idx = 0;
     int state = 0;
+    
 };
 
 class Reed_Basic: public Mode
 {
 public:
     Reed_Basic() : Mode(){}
+    int16_t calc(void* ptr);
+    
+};
+
+class Reed_Basic_stretched: public Mode
+{
+public:
+    Reed_Basic_stretched() : Mode(){
+        max = 7200;
+        table_size = 7200; 
+    }
+    int16_t calc(void* ptr);
+};
+
+class Reed_Basic_linearized: public Mode
+{
+public:
+    Reed_Basic_linearized() : Mode(){}
     int16_t calc(void* ptr);
 };
 
@@ -62,7 +83,9 @@ class TorqueTuner
 {
 public:
     enum MODE {
-        REED_BASIC = 0
+        REED_BASIC = 0,
+        REED_BASIC_STRETCHED = 1,
+        REED_BASIC_LINEARIZED = 2
     };
     const int trigger_interval = 50000;  // 10 ms
 
@@ -86,6 +109,7 @@ public:
     MODE mode = REED_BASIC;
     int16_t angle = 0; // unwrap_outputped angle representing encoder reading
     int16_t angle_last = 0;
+    int32_t angle_out_modified = 0;
     int32_t angle_out = 0;
     int32_t angle_out_last = 0;
     int16_t wrap_count = 0;
@@ -97,13 +121,15 @@ public:
     int trigger = -1;
     int num_modes = 0;
 
+    int button_val =0;
     float velocity = 0;
     float velocity_out = 0;
     float target_velocity = 0; // [-500;500]
     float acceleration = 0; // [-100;100]
     float scale = 75.0;
     float stretch = 1; // Corresponds to detents in click and magnet mode.
-
+    bool pluck = false;
+    float sticky_torque = 0;
     Reed_Basic reed_basic;
     std::vector<Mode * > mode_list = {&reed_basic};
     Mode * active_mode;

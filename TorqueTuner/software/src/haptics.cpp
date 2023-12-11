@@ -23,7 +23,7 @@ void TorqueTuner::update() {
 		update_trig();
 		angle_discrete_last = angle_discrete;
 	}
-	torque = static_cast<int16_t>(active_mode->calc(this) - active_mode->damping * velocity);
+	torque = static_cast<int16_t>(active_mode->calc(this)- active_mode->damping * velocity); 
 }
 
 void TorqueTuner::update_angle() {
@@ -43,9 +43,9 @@ void TorqueTuner::update_angle() {
 	// Clip with parameter range
 	angle_out += angle_delta;
 	if (active_mode->wrap_output) {
-		angle_out = mod(angle_out, 3600); // CHANGE to min, max
+		angle_out_modified = mod(angle_out, 3600); // CHANGE to min, max
 	} else {
-		angle_out = static_cast<int32_t>(clip(angle_out, active_mode->min, active_mode->max));
+		angle_out_modified = static_cast<int32_t>(clip(angle_out, active_mode->min, active_mode->max));
 	}
 }
 
@@ -126,8 +126,24 @@ int32_t TorqueTuner::getTime() {
 }
 int16_t Reed_Basic::calc(void* ptr){
 	TorqueTuner* knob = (TorqueTuner*)ptr;
-	float val = (H_init * rp_table[idx] - rp_B_table[idx]/k_init)*rp_sgn_table[idx];
-	// printf("Index %d ,Pressure: %f, Flow: %f \n", idx ,rp_B_table[idx], val);
+	float val = 0;
+	if ( knob->angle_out < -1000){
+		if(knob->pluck != true) knob->pluck = true;
+		val = (knob->angle_out+1000)/1500.0;
+		if(knob->angle_out < -1500.0){
+			val = -1.0;
+		}
+		if(val < knob->sticky_torque) knob->sticky_torque = val;
+	}
+	else{
+		if(knob->pluck != false) {
+			knob->pluck = false;
+			knob->sticky_torque = 0;
+			}
+		val = (H_init * rp_table[idx] - rp_B_table[idx]/k_init)*rp_sgn_table[idx];
+	}
+
+	// printf("Index %d ,Pressure: %f, Flow: %f , Angle: %d ,Pluck: %d ,ST: %f\n", idx ,rp_B_table[idx], val, knob->angle_out, knob->pluck,knob->sticky_torque);
 	val *= -knob->scale;
 	return static_cast<int16_t> (round(val));
 }
@@ -139,9 +155,9 @@ int16_t Mode::calc_index(void* ptr) {
 	state += static_cast<int16_t> (round(knob->angle_delta * knob->stretch));
 	if (wrap_haptics)
 	{
-		idx = mod(state, 3600);
+		idx = mod(state, knob->active_mode->table_size);
 	} else {
-		idx = clip(state, 0,  3600);
+		idx = clip(state, 0,  knob->active_mode->table_size);
 	}
 	return idx;
 

@@ -237,6 +237,17 @@ int receiveI2C(TorqueTuner * knob_) {
     }
   }
 }
+void Spin_out_sendI2C_Test(TorqueTuner * knob_) {
+  Wire.beginTransmission(8); // transmit to device #8
+  memcpy(tx_data, &knob_->torque, 2);
+  memcpy(tx_data + 2, &knob_->target_velocity, 4);
+  memcpy(tx_data + 6, &knob_->active_mode->pid_mode, 1);
+  checksum_tx = calcsum(tx_data, I2C_BUF_SIZE);
+  memcpy(tx_data + I2C_BUF_SIZE , &checksum_tx, 2);
+  printf("vall");
+  int n = Wire.write(NULL, I2C_BUF_SIZE + CHECKSUMSIZE);
+  Wire.endTransmission();    // stop transmitting
+}
 
 void sendI2C(TorqueTuner * knob_) {
   Wire.beginTransmission(8); // transmit to device #8
@@ -495,15 +506,18 @@ void readInputs() {
   bool button_pressed = update_btn_lcd(buttons);
   if (button_pressed) {
     if ((buttons & BUTTON_SELECT) || (buttons & BUTTON_RIGHT)) {
+
       // Meant to change haptic effects, not needed for the crank mode.
       // OLD_STATE = STATE;
       // STATE = CHANGE_STATE(STATE,MAX_MOTOR_STATES,1);
       // knob.set_mode(STATE);
+      knob.button_val++;
     }
     if (buttons & BUTTON_LEFT) {
       // OLD_STATE = STATE;
       // STATE = CHANGE_STATE(STATE,MAX_MOTOR_STATES,0);
       // knob.set_mode(STATE);
+      knob.button_val--;
     }
   }
 }
@@ -525,6 +539,7 @@ void updateHaptics() {
         knob.target_velocity = 0;
       }
       sendI2C(&knob);
+      // Spin_out_sendI2C_Test(&knob);
     }
 }
 
@@ -540,8 +555,14 @@ void updateOSC() {
           lo_send(osc1, oscNamespace.c_str(), "i", knob.trigger);
           oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/angle_discrete");
           lo_send(osc1, oscNamespace.c_str(), "i", knob.angle_discrete);
-          oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/torque");
+          oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/flow");
           lo_send(osc1, oscNamespace.c_str(), "i", knob.torque);
+          oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/pluck");
+          lo_send(osc1, oscNamespace.c_str(), "i", knob.pluck);
+          oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/st");
+          lo_send(osc1, oscNamespace.c_str(), "f", knob.sticky_torque);
+          oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/button");
+          lo_send(osc1, oscNamespace.c_str(), "i", knob.button_val);
     }
     if (puara.IP2_ready()) {
           oscNamespace.replace(oscNamespace.begin()+baseNamespace.size(),oscNamespace.end(), "instrument/angle_out");
